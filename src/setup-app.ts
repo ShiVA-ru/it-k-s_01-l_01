@@ -2,6 +2,8 @@ import express, { Express, Request, Response } from "express";
 import { HttpStatus } from "./core/types/http-statuses";
 import { Driver } from "./drivers/types/driver";
 import { db } from "./db/in-memory.db";
+import { vehicleInputDtoValidation } from "./drivers/validation/venicleInputDtoValidation";
+import { createErrorMessages } from "./core/utils/error.utils";
 
 export const setupApp = (app: Express) => {
   app.use(express.json());
@@ -25,6 +27,13 @@ export const setupApp = (app: Express) => {
   });
 
   app.post("/drivers", (req, res) => {
+    const errors = vehicleInputDtoValidation(req.body);
+
+    if (errors.length > 0) {
+      res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
+      return;
+    }
+
     const newDriver: Driver = {
       id: +new Date(),
       createdAt: new Date(),
