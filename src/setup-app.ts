@@ -1,9 +1,8 @@
 import express, { Express, Request, Response } from "express";
 import { HttpStatus } from "./core/types/http-statuses";
-import { Driver } from "./drivers/types/driver";
 import { db } from "./db/in-memory.db";
-import { vehicleInputDtoValidation } from "./drivers/validation/venicleInputDtoValidation";
-import { createErrorMessages } from "./core/utils/error.utils";
+import { driversRouter } from "./drivers/drivers.router";
+import { testingRouter } from "./testing/testing.router";
 
 export const setupApp = (app: Express) => {
   app.use(express.json());
@@ -12,45 +11,8 @@ export const setupApp = (app: Express) => {
     res.status(HttpStatus.Ok).send("Hello World!");
   });
 
-  app.get("/drivers", (req, res) => {
-    res.status(HttpStatus.Ok).send(db.drivers);
-  });
-
-  app.get("/drivers/:id", (req, res) => {
-    const driver = db.drivers.find((driver) => driver.id === +req.params.id);
-
-    if (!driver) {
-      res.status(HttpStatus.NotFound).send({ message: "Driver not found" });
-    }
-
-    res.status(HttpStatus.Ok).send(driver);
-  });
-
-  app.post("/drivers", (req, res) => {
-    const errors = vehicleInputDtoValidation(req.body);
-
-    if (errors.length > 0) {
-      res.status(HttpStatus.BadRequest).send(createErrorMessages(errors));
-      return;
-    }
-
-    const newDriver: Driver = {
-      id: +new Date(),
-      createdAt: new Date(),
-      ...req.body,
-    };
-    db.drivers.push(newDriver);
-    res.status(HttpStatus.Created).send(newDriver);
-  });
-
-  app.get("/testing", (req: Request, res: Response) => {
-    res.status(HttpStatus.Ok).send("testing url");
-  });
-
-  app.delete("/testing/all-data", (req, res) => {
-    db.drivers = [];
-    res.sendStatus(HttpStatus.NoContent);
-  });
+  app.use("/drivers", driversRouter);
+  app.use("/testing", testingRouter);
 
   return app;
 };
