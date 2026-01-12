@@ -1,13 +1,11 @@
 import request from "supertest";
-import { HttpStatus } from "../../../src/core/types/http-statuses";
-import express, { Express } from "express";
+import express from "express";
 import { setupApp } from "../../../src/setup-app";
 import { DriverInputDto } from "../../../src/drivers/dto/driver.input-dto";
+import { HttpStatus } from "../../../src/core/types/http-statuses";
+import { VehicleFeature } from "../../../src/drivers/types/driver";
 
-//в видео Димыча app импортируется из index,
-// в репозитории импортируется setup-app и в уроке создается экземпляр app - const app = express();
-// какой из вариантов правильный?
-describe("testing for /drivers", () => {
+describe("Driver API", () => {
   const app = express();
   setupApp(app);
 
@@ -27,9 +25,11 @@ describe("testing for /drivers", () => {
     await request(app).delete("/testing/all-data").expect(HttpStatus.NoContent);
   });
 
-  it("should create entity with correct input data", async () => {
+  it("should create driver; POST drivers", async () => {
     const newDriver: DriverInputDto = {
       ...testDriverData,
+      name: "Feodor",
+      email: "feodor@example.com",
     };
 
     await request(app)
@@ -38,37 +38,91 @@ describe("testing for /drivers", () => {
       .expect(HttpStatus.Created);
   });
 
-  it("should return entity list", async () => {
+  it("should return drivers list; GET /drivers", async () => {
     await request(app)
       .post("/drivers")
       .send({ ...testDriverData, name: "Another Driver" })
-      .expect(201);
+      .expect(HttpStatus.Created);
 
     await request(app)
       .post("/drivers")
       .send({ ...testDriverData, name: "Another Driver2" })
-      .expect(201);
+      .expect(HttpStatus.Created);
 
-    const driverListResponse = await request(app).get("/drivers").expect(200);
+    const driverListResponse = await request(app)
+      .get("/drivers")
+      .expect(HttpStatus.Ok);
 
     expect(driverListResponse.body).toBeInstanceOf(Array);
     expect(driverListResponse.body.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("should return entity by id", async () => {
+  it("should return driver by id; GET /drivers/:id", async () => {
     const createResponse = await request(app)
       .post("/drivers")
       .send({ ...testDriverData, name: "Another Driver" })
-      .expect(201);
+      .expect(HttpStatus.Created);
 
     const getResponse = await request(app)
       .get(`/drivers/${createResponse.body.id}`)
-      .expect(200);
+      .expect(HttpStatus.Ok);
 
     expect(getResponse.body).toEqual({
       ...createResponse.body,
       id: expect.any(Number),
       createdAt: expect.any(String),
     });
+  });
+
+  it("should update driver; PUT /drivers/:id", async () => {
+    const createResponse = await request(app)
+      .post("/drivers")
+      .send({ ...testDriverData, name: "Another Driver" })
+      .expect(HttpStatus.Created);
+
+    const driverUpdateData: DriverInputDto = {
+      name: "Updated Name",
+      phoneNumber: "999-888-7777",
+      email: "updated@example.com",
+      vehicleMake: "Tesla",
+      vehicleModel: "Model S",
+      vehicleYear: 2022,
+      vehicleLicensePlate: "NEW-789",
+      vehicleDescription: "Updated vehicle description",
+      vehicleFeatures: [VehicleFeature.ChildSeat],
+    };
+
+    await request(app)
+      .put(`/drivers/${createResponse.body.id}`)
+      .send(driverUpdateData)
+      .expect(HttpStatus.NoContent);
+
+    const driverResponse = await request(app).get(
+      `/drivers/${createResponse.body.id}`,
+    );
+
+    expect(driverResponse.body).toEqual({
+      ...driverUpdateData,
+      id: createResponse.body.id,
+      createdAt: expect.any(String),
+    });
+  });
+
+  it("DELETE /drivers/:id and check after NOT FOUND", async () => {
+    const {
+      body: { id: createdDriverId },
+    } = await request(app)
+      .post("/drivers")
+      .send({ ...testDriverData, name: "Another Driver" })
+      .expect(HttpStatus.Created);
+
+    await request(app)
+      .delete(`/drivers/${createdDriverId}`)
+      .expect(HttpStatus.NoContent);
+
+    const driverResponse = await request(app).get(
+      `/drivers/${createdDriverId}`,
+    );
+    expect(driverResponse.status).toBe(HttpStatus.NotFound);
   });
 });
